@@ -256,6 +256,106 @@ public class XsltTests
         Assert.Equal("5", result.Trim());
         Assert.Equal(string.Empty, xslt.LastErrorMessage);
     }
+
+    [Theory]
+    [InlineData("http://www.altova.com", "altova")]
+    [InlineData("http://www.altova.com/xslt-extensions", "altova")]
+    [InlineData("http://www.altova.com/StyleVision/user-xpath-functions", "sps")]
+    public void Xslt2_AltovaEvaluateAlias_ResolvesAcrossAltovaNamespaces(string namespaceUri, string prefix)
+    {
+        // Altova tools declare evaluate() under several namespace URIs; the bundled
+        // registry must bridge all of them so these headers "just work".
+        var xslt = new XSLT2(new EngineRouter());
+        xslt.InputXMLFromText = "<root><expr>2+3</expr></root>";
+        xslt.XSLFromText = $"""
+            <xsl:stylesheet version="2.0"
+                xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+                xmlns:{prefix}="{namespaceUri}">
+              <xsl:output method="text"/>
+              <xsl:template match="/">
+                <xsl:value-of select="{prefix}:evaluate(/*/expr)"/>
+              </xsl:template>
+            </xsl:stylesheet>
+            """;
+
+        var result = xslt.ExecuteAndGetResultAsString();
+
+        Assert.Equal("5", result.Trim());
+        Assert.Equal(string.Empty, xslt.LastErrorMessage);
+    }
+
+    [Fact]
+    public void Xslt2_AltovaDistinctNodes_RemovesDuplicateNodes_PreservingDocumentOrder()
+    {
+        var xslt = new XSLT2(new EngineRouter());
+        xslt.InputXMLFromText = "<root><a/><b/></root>";
+        xslt.XSLFromText = """
+            <xsl:stylesheet version="2.0"
+                xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+                xmlns:altova="http://www.altova.com/xslt-extensions">
+              <xsl:output method="text"/>
+              <xsl:template match="/">
+                <!-- /*/a/.. and /*/b/.. both resolve to the SAME <root/> node, so
+                     distinct-nodes() must collapse them to a single occurrence. -->
+                <xsl:for-each select="altova:distinct-nodes((/*/a/.., /*/b/..))">
+                  <xsl:value-of select="name()"/>
+                </xsl:for-each>
+              </xsl:template>
+            </xsl:stylesheet>
+            """;
+
+        var result = xslt.ExecuteAndGetResultAsString();
+
+        Assert.Equal("root", result.Trim());
+        Assert.Equal(string.Empty, xslt.LastErrorMessage);
+    }
+
+    [Fact]
+    public void Xslt2_AltovaGetTempFolder_ReturnsNonEmptyPath()
+    {
+        var xslt = new XSLT2(new EngineRouter());
+        xslt.InputXMLFromText = "<root/>";
+        xslt.XSLFromText = """
+            <xsl:stylesheet version="2.0"
+                xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+                xmlns:altova="http://www.altova.com/xslt-extensions">
+              <xsl:output method="text"/>
+              <xsl:template match="/">
+                <xsl:value-of select="altova:get-temp-folder()"/>
+              </xsl:template>
+            </xsl:stylesheet>
+            """;
+
+        var result = xslt.ExecuteAndGetResultAsString();
+
+        Assert.False(string.IsNullOrWhiteSpace(result));
+        Assert.Equal(Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar), result.Trim().TrimEnd(Path.DirectorySeparatorChar));
+        Assert.Equal(string.Empty, xslt.LastErrorMessage);
+    }
+
+    [Theory]
+    [InlineData("plain text", "plain text")]
+    [InlineData(@"back\slash {brace} done", @"back\\slash \{brace\} done")]
+    public void Xslt2_AltovaEncodeForRft_EscapesRftReservedCharacters(string input, string expected)
+    {
+        var xslt = new XSLT2(new EngineRouter());
+        xslt.InputXMLFromText = $"<root><v>{input}</v></root>";
+        xslt.XSLFromText = """
+            <xsl:stylesheet version="2.0"
+                xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+                xmlns:altova="http://www.altova.com/xslt-extensions">
+              <xsl:output method="text"/>
+              <xsl:template match="/">
+                <xsl:value-of select="altova:encode-for-rft(/*/v)"/>
+              </xsl:template>
+            </xsl:stylesheet>
+            """;
+
+        var result = xslt.ExecuteAndGetResultAsString();
+
+        Assert.Equal(expected, result);
+        Assert.Equal(string.Empty, xslt.LastErrorMessage);
+    }
 }
 
 public class XQueryTests

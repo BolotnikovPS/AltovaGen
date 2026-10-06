@@ -1,4 +1,5 @@
 using AltovaGen.Abstractions;
+using AltovaGen.Engine.Saxon;
 
 namespace AltovaGen.DependencyInjection;
 
@@ -29,4 +30,12 @@ public sealed class AltovaGenOptions
     /// validation requests throw <see cref="NotSupportedException"/>.
     /// </summary>
     public IValidationEngine? SaxonValidation { get; set; }
+
+    /// <summary>
+    /// Optional extension-function registry for the Saxon XSLT engine. When
+    /// <see langword="null"/>, the bundled <see cref="SaxonExtensionFunctionRegistry"/>
+    /// (the Altova <c>evaluate()</c> bridge) is used. Supply a custom registry to add
+    /// project-specific extension functions without recompiling the package.
+    /// </summary>
+    public IExtensionFunctionRegistry? ExtensionFunctions { get; set; }
 }

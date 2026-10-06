@@ -56,7 +56,13 @@ public static class AltovaGenServiceCollectionExtensions
         services.TryAddSingleton<BclXsltEngine>();
         services.TryAddSingleton<BclXQueryEngine>();
         services.TryAddSingleton<BclValidatorEngine>();
-        services.TryAddSingleton<SaxonXsltEngine>();
+
+        // Saxon engine: build it with the configured extension-function registry
+        // (defaults to the bundled Altova evaluate() bridge).
+        services.TryAddSingleton<IExtensionFunctionRegistry>(_ =>
+            options.ExtensionFunctions ?? new SaxonExtensionFunctionRegistry());
+        services.TryAddSingleton<SaxonXsltEngine>(sp =>
+            new SaxonXsltEngine(sp.GetRequiredService<IExtensionFunctionRegistry>()));
 
         // Router: built from the container-registered engines so that the exact
         // instances registered in the container are the ones it selects.

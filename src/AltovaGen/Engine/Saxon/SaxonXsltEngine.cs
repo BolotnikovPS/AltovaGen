@@ -44,6 +44,25 @@ internal sealed class SaxonXsltEngine : IXsltEngine
         """^<\?xml[^>]*?encoding\s*=\s*["'](?<enc>[^"']+)["']""",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    private readonly IExtensionFunctionRegistry _extensionFunctions;
+
+    /// <summary>
+    /// Creates the engine with the built-in extension-function registry.
+    /// </summary>
+    public SaxonXsltEngine()
+        : this(new SaxonExtensionFunctionRegistry())
+    {
+    }
+
+    /// <summary>
+    /// Creates the engine with a custom extension-function registry. Used by the DI
+    /// container to inject <see cref="DependencyInjection.AltovaGenOptions.ExtensionFunctions"/>.
+    /// </summary>
+    public SaxonXsltEngine(IExtensionFunctionRegistry extensionFunctions)
+    {
+        _extensionFunctions = extensionFunctions ?? throw new ArgumentNullException(nameof(extensionFunctions));
+    }
+
     /// <summary>
     /// SaxonCS-HE mutates process-wide static state while constructing a
     /// <see cref="Processor"/> and registering extension functions. Under concurrent
@@ -177,7 +196,7 @@ internal sealed class SaxonXsltEngine : IXsltEngine
     /// diagnostics into <paramref name="diagnostics"/>. Extracted so the synchronous and
     /// asynchronous entry points share the same (CPU-bound) transform body.
     /// </summary>
-    private static byte[] TransformCore(TransformRequest request, List<Diagnostic> diagnostics)
+    private byte[] TransformCore(TransformRequest request, List<Diagnostic> diagnostics)
     {
         // false => not schema-aware (Home Edition). Construction and extension
         // registration are serialized: see ProcessorGate.
@@ -185,7 +204,10 @@ internal sealed class SaxonXsltEngine : IXsltEngine
         lock (ProcessorGate)
         {
             processor = new Processor(false);
-            processor.RegisterExtensionFunction(new AltovaEvaluateFunction());
+            foreach (var function in _extensionFunctions.Functions)
+            {
+                processor.RegisterExtensionFunction(function);
+            }
         }
 
         var executable = Compile(processor, request, diagnostics);

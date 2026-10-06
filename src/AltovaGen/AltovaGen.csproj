@@ -39,7 +39,7 @@ Works on linux-x64, osx-arm64 and win-x64.</Description>
     <!-- I1: PlatformTarget stays AnyCPU by default -->
     <Deterministic>true</Deterministic>
     
-    <Version>2.0.2</Version>
+    <Version>2.0.3</Version>
   </PropertyGroup>
 
   <!-- Files to include in the NuGet package -->

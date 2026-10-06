@@ -3,8 +3,7 @@ using Saxon.Api;
 namespace AltovaGen.Engine.Saxon;
 
 /// <summary>
-/// Managed, COM-free emulation of the Altova extension function
-/// <c>altova:evaluate()</c> from <c>xmlns:altova="http://www.altova.com/xslt-extensions"</c>.
+/// Managed, COM-free emulation of the Altova extension function <c>evaluate()</c>.
 ///
 /// Altova-generated stylesheets (XMLSpy, StyleVision, MapForce, RaptorXML) call this
 /// function to evaluate an XPath expression that is computed at run time, typically
@@ -14,14 +13,17 @@ namespace AltovaGen.Engine.Saxon;
 ///   &lt;xsl:value-of select="altova:evaluate($expr)"/&gt;
 /// </code>
 ///
+/// The function is registered under several namespace URIs that Altova tools use for
+/// the same purpose; see <see cref="SaxonExtensionFunctionRegistry"/> for the full list.
+///
 /// Semantics implemented here:
 /// <list type="bullet">
-///   <item><c>altova:evaluate($expr)</c> — evaluates <c>$expr</c> as an XPath expression
+///   <item><c>evaluate($expr)</c> — evaluates <c>$expr</c> as an XPath expression
 ///     with the focus (context item) that is in effect at the call site. This matches
 ///     Altova's documented behaviour of evaluating relative to the context node, so
 ///     <c>../title/text()</c> called from a <c>&lt;dynamic-expression&gt;</c> node returns
 ///     the text of the sibling <c>&lt;title&gt;</c>.</item>
-///   <item><c>altova:evaluate($expr, $focus)</c> — evaluates <c>$expr</c> relative to an
+///   <item><c>evaluate($expr, $focus)</c> — evaluates <c>$expr</c> relative to an
 ///     explicitly supplied node instead of the context item.</item>
 /// </list>
 ///
@@ -31,17 +33,27 @@ namespace AltovaGen.Engine.Saxon;
 /// for relative URI resolution.
 ///
 /// There is no COM, no registry lookup and no Altova runtime: the function is registered
-/// on the Saxon processor by <see cref="SaxonXsltEngine"/>.
+/// on the Saxon processor by <see cref="SaxonXsltEngine"/> via a
+/// <see cref="SaxonExtensionFunctionRegistry"/>.
 /// </summary>
 internal sealed class AltovaEvaluateFunction : ExtensionFunctionDefinition
 {
-    /// <summary>The Altova XSLT extension namespace.</summary>
-    public const string NamespaceUri = "http://www.altova.com/xslt-extensions";
-
-    /// <summary>The function name inside <see cref="NamespaceUri"/>.</summary>
+    /// <summary>The function name inside the configured namespace URI.</summary>
     public const string LocalName = "evaluate";
 
-    public override QName FunctionName => new(NamespaceUri, LocalName);
+    private readonly string _namespaceUri;
+
+    /// <summary>
+    /// Creates the <c>evaluate()</c> bridge for the given extension namespace URI.
+    /// </summary>
+    public AltovaEvaluateFunction(string namespaceUri)
+    {
+        _namespaceUri = string.IsNullOrWhiteSpace(namespaceUri)
+            ? throw new ArgumentException("A namespace URI is required.", nameof(namespaceUri))
+            : namespaceUri;
+    }
+
+    public override QName FunctionName => new(_namespaceUri, LocalName);
 
     public override int MinimumNumberOfArguments => 1;
 
