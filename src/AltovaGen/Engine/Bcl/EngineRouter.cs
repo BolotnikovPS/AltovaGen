@@ -1,5 +1,6 @@
 using AltovaGen.Abstractions;
 using AltovaGen.Engine.Saxon;
+using AltovaGen.Models;
 
 namespace AltovaGen.Engine.Bcl;
 
@@ -97,5 +98,25 @@ internal sealed class EngineRouter : IEngineRouter
                        "XSD 1.1 validation is not available: no Saxon XSD 1.1 engine is registered.");
         }
         return _bclValidator;
+    }
+
+    public Task<TransformResult> TransformAsync(double requiredVersion, TransformRequest request,
+        bool requireExtensions = false, CancellationToken cancellationToken = default)
+    {
+        var engine = SelectXsltEngine(requiredVersion, requireExtensions);
+        return engine.TransformAsync(request, cancellationToken);
+    }
+
+    public Task<XQueryResult> ExecuteAsync(XQueryRequest request, CancellationToken cancellationToken = default)
+    {
+        var engine = SelectXQueryEngine();
+        return engine.ExecuteAsync(request, cancellationToken);
+    }
+
+    public Task<ValidationResult> ValidateAsync(double xsdVersion, ValidationRequest request,
+        bool requireXsd11 = false, CancellationToken cancellationToken = default)
+    {
+        var engine = SelectValidationEngine(xsdVersion, requireXsd11);
+        return engine.ValidateAsync(request, cancellationToken);
     }
 }

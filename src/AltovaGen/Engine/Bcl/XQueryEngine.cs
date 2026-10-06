@@ -55,44 +55,8 @@ internal sealed class BclXQueryEngine : IXQueryEngine
 
             // Get query text (XPath)
             string query = request.XQueryPath ?? request.XQueryText!;
-            var nav = doc.CreateNavigator();
 
-            // Apply external variables (simple string substitution is NOT done here —
-            // variables require a real XQuery engine; we report them unsupported on BCL route)
-            if (request.ExternalVariables is { Count: > 0 } || request.ExternalVariablesAsXPath is { Count: > 0 })
-            {
-                return new XQueryResult
-                {
-                    LastErrorMessage = "External variables require the Saxon engine (XQuery 3.1). The BCL XPath route does not support variables.",
-                    Diagnostics = new[] { new Diagnostic("External variables unsupported on BCL route", Code: "XQ-VAR-001") }
-                };
-            }
-
-            object result = nav.Evaluate(query) ?? string.Empty;
-            string output = result switch
-            {
-                XPathNodeIterator it => CollectNodeSet(it),
-                string s => s,
-                double d => d.ToString("R", CultureInfo.InvariantCulture),
-                bool b => b ? "true" : "false",
-                _ => result.ToString() ?? string.Empty
-            };
-
-            if (string.IsNullOrEmpty(request.OutputPath))
-            {
-                return new XQueryResult
-                {
-                    OutputText = output,
-                    Diagnostics = Array.Empty<Diagnostic>()
-                };
-            }
-
-            System.IO.File.WriteAllText(request.OutputPath, output, new System.Text.UTF8Encoding(false));
-            return new XQueryResult
-            {
-                OutputText = output,
-                Diagnostics = Array.Empty<Diagnostic>()
-            };
+            return EvaluateCore(doc, query, request);
         }
         catch (XPathException ex)
         {
@@ -110,6 +74,113 @@ internal sealed class BclXQueryEngine : IXQueryEngine
                 Diagnostics = new[] { new Diagnostic(ex.Message, Code: "XQ002") }
             };
         }
+    }
+
+    public async Task<XQueryResult> ExecuteAsync(XQueryRequest request, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            if (!request.IsFromFiles && !request.IsFromText)
+            {
+                return new XQueryResult
+                {
+                    LastErrorMessage = "Invalid request: must specify query and input (files or text).",
+                    Diagnostics = new[] { new Diagnostic("Invalid request", Code: "REQ002") }
+                };
+            }
+
+            // Load input document
+            XPathDocument doc;
+            if (!string.IsNullOrEmpty(request.InputXmlPath))
+            {
+                var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit };
+                using var reader = XmlReader.Create(request.InputXmlPath!, settings);
+                doc = new XPathDocument(reader);
+            }
+            else
+            {
+                var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit };
+                using var reader = XmlReader.Create(new StringReader(request.InputXmlText!), settings);
+                doc = new XPathDocument(reader);
+            }
+
+            // Get query text (XPath)
+            string query = request.XQueryPath ?? request.XQueryText!;
+
+            var result = EvaluateCore(doc, query, request);
+
+            if (!string.IsNullOrEmpty(request.OutputPath) && result.OutputText is not null)
+            {
+                await System.IO.File.WriteAllTextAsync(
+                        request.OutputPath, result.OutputText, new System.Text.UTF8Encoding(false), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            return result;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (XPathException ex)
+        {
+            return new XQueryResult
+            {
+                LastErrorMessage = $"XPath/XQuery error: {ex.Message}",
+                Diagnostics = new[] { new Diagnostic(ex.Message, Code: "XQ001") }
+            };
+        }
+        catch (Exception ex)
+        {
+            return new XQueryResult
+            {
+                LastErrorMessage = ex.Message,
+                Diagnostics = new[] { new Diagnostic(ex.Message, Code: "XQ002") }
+            };
+        }
+    }
+
+    private static XQueryResult EvaluateCore(XPathDocument doc, string query, XQueryRequest request)
+    {
+        var nav = doc.CreateNavigator();
+
+        // Apply external variables (simple string substitution is NOT done here —
+        // variables require a real XQuery engine; we report them unsupported on BCL route)
+        if (request.ExternalVariables is { Count: > 0 } || request.ExternalVariablesAsXPath is { Count: > 0 })
+        {
+            return new XQueryResult
+            {
+                LastErrorMessage = "External variables require the Saxon engine (XQuery 3.1). The BCL XPath route does not support variables.",
+                Diagnostics = new[] { new Diagnostic("External variables unsupported on BCL route", Code: "XQ-VAR-001") }
+            };
+        }
+
+        object result = nav.Evaluate(query) ?? string.Empty;
+        string output = result switch
+        {
+            XPathNodeIterator it => CollectNodeSet(it),
+            string s => s,
+            double d => d.ToString("R", CultureInfo.InvariantCulture),
+            bool b => b ? "true" : "false",
+            _ => result.ToString() ?? string.Empty
+        };
+
+        if (string.IsNullOrEmpty(request.OutputPath))
+        {
+            return new XQueryResult
+            {
+                OutputText = output,
+                Diagnostics = Array.Empty<Diagnostic>()
+            };
+        }
+
+        System.IO.File.WriteAllText(request.OutputPath, output, new System.Text.UTF8Encoding(false));
+        return new XQueryResult
+        {
+            OutputText = output,
+            Diagnostics = Array.Empty<Diagnostic>()
+        };
     }
 
     private static string CollectNodeSet(XPathNodeIterator it)

@@ -166,6 +166,8 @@ public class DependencyInjectionTests
         public EngineCapabilities Capabilities => EngineCapabilities.Saxon;
 
         public TransformResult Transform(TransformRequest request) => throw new NotSupportedException();
+
+        public Task<TransformResult> TransformAsync(TransformRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class StubXQueryEngine : IXQueryEngine
@@ -173,6 +175,8 @@ public class DependencyInjectionTests
         public EngineCapabilities Capabilities => EngineCapabilities.Saxon;
 
         public XQueryResult Execute(XQueryRequest request) => throw new NotSupportedException();
+
+        public Task<XQueryResult> ExecuteAsync(XQueryRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class StubValidationEngine : IValidationEngine
@@ -180,6 +184,8 @@ public class DependencyInjectionTests
         public EngineCapabilities Capabilities => EngineCapabilities.Saxon;
 
         public ValidationResult Validate(ValidationRequest request) => throw new NotSupportedException();
+
+        public Task<ValidationResult> ValidateAsync(ValidationRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 }
 

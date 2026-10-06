@@ -60,8 +60,37 @@ internal class XMLValidator : IXMLValidator
             return false;
         }
 
-        var result = IsValid();
+        return IsValid();
+    }
+
+    public async Task<bool> IsValidAsync(CancellationToken cancellationToken = default)
+    {
+        var result = await ValidateAsync(true, cancellationToken).ConfigureAwait(false);
+        _lastError = result.LastErrorMessage ?? string.Empty;
+        _lastValid = result.IsValid;
         return _lastValid;
+    }
+
+    public async Task<bool> IsWellFormedAsync(CancellationToken cancellationToken = default)
+    {
+        var result = await ValidateAsync(false, cancellationToken).ConfigureAwait(false);
+        _lastError = result.LastErrorMessage ?? string.Empty;
+        _lastValid = result.IsWellFormed;
+        return _lastValid;
+    }
+
+    public Task<bool> IsValidWithExternalSchemaOrDTDAsync(CancellationToken cancellationToken = default)
+    {
+        bool hasExtSchema = !string.IsNullOrEmpty(_schemaFileName) || !string.IsNullOrEmpty(_schemaFromText);
+        bool hasExtDtd = !string.IsNullOrEmpty(_dtdFileName) || !string.IsNullOrEmpty(_dtdFromText);
+
+        if (!hasExtSchema && !hasExtDtd)
+        {
+            _lastError = "No external schema or DTD specified: set SchemaFileName/SchemaFromText or DTDFileName/DTDFromText.";
+            return Task.FromResult(false);
+        }
+
+        return IsValidAsync(cancellationToken);
     }
 
     private ValidationResult Validate(bool withSchemaOrDtd)
@@ -73,9 +102,27 @@ internal class XMLValidator : IXMLValidator
         }
 
         var engine = _router.SelectValidationEngine(1.0, requireXsd11: false);
+        var request = BuildRequest(withSchemaOrDtd);
+        return engine.Validate(request);
+    }
 
+    private Task<ValidationResult> ValidateAsync(bool withSchemaOrDtd, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(_inputXmlFileName) && string.IsNullOrEmpty(_inputXmlFromText))
+        {
+            _lastError = "No input XML specified: set InputXMLFileName or InputXMLFromText.";
+            return Task.FromResult(new ValidationResult { IsWellFormed = false, LastErrorMessage = _lastError });
+        }
+
+        var engine = _router.SelectValidationEngine(1.0, requireXsd11: false);
+        var request = BuildRequest(withSchemaOrDtd);
+        return engine.ValidateAsync(request, cancellationToken);
+    }
+
+    private ValidationRequest BuildRequest(bool withSchemaOrDtd)
+    {
         // Well-formedness checks ignore any configured schema/DTD by design.
-        var request = new ValidationRequest
+        return new ValidationRequest
         {
             InputXmlPath = !string.IsNullOrEmpty(_inputXmlFileName) ? _inputXmlFileName : null,
             InputXmlText = !string.IsNullOrEmpty(_inputXmlFromText) ? _inputXmlFromText : null,
@@ -85,7 +132,5 @@ internal class XMLValidator : IXMLValidator
             DtdText = withSchemaOrDtd && !string.IsNullOrEmpty(_dtdFromText) ? _dtdFromText : null,
             TreatXBRLInconsistenciesAsErrors = _treatXbrlAsErrors != 0
         };
-
-        return engine.Validate(request);
     }
 }

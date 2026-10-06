@@ -44,6 +44,36 @@ internal sealed class BclXsltEngine : IXsltEngine
         }
     }
 
+    public async Task<TransformResult> TransformAsync(TransformRequest request, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            if (request.IsFromFiles)
+            {
+                return await TransformFilesAsync(request, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (request.IsFromText)
+            {
+                return await TransformTextAsync(request, cancellationToken).ConfigureAwait(false);
+            }
+
+            return new TransformResult
+            {
+                LastErrorMessage = "Invalid request: must specify either file paths or text content for both XML and XSL."
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return new TransformResult { LastErrorMessage = ex.Message };
+        }
+    }
+
     private static XsltSettings CreateSettings() => new()
     {
         // msxsl:script is obsolete in .NET 8+ [SYSLIB0062] and unsupported on every
@@ -51,6 +81,71 @@ internal sealed class BclXsltEngine : IXsltEngine
         // is intentionally not referenced here (the member is removed in .NET 10).
         EnableDocumentFunction = true
     };
+
+    private async Task<TransformResult> TransformFilesAsync(TransformRequest request, CancellationToken cancellationToken)
+    {
+        var inputXml = await File.ReadAllTextAsync(request.InputXmlPath!, cancellationToken).ConfigureAwait(false);
+        var xsl = await File.ReadAllTextAsync(request.XslPath!, cancellationToken).ConfigureAwait(false);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var resultText = TransformTextCore(xsl, inputXml, request.ExternalParameters);
+
+        if (!string.IsNullOrEmpty(request.OutputPath))
+        {
+            await File.WriteAllTextAsync(request.OutputPath, resultText, new UTF8Encoding(false), cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return new TransformResult
+        {
+            OutputText = resultText,
+            Output = new UTF8Encoding(false).GetBytes(resultText)
+        };
+    }
+
+    private async Task<TransformResult> TransformTextAsync(TransformRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var resultText = TransformTextCore(request.XslText!, request.InputXmlText!, request.ExternalParameters);
+
+        if (!string.IsNullOrEmpty(request.OutputPath))
+        {
+            await File.WriteAllTextAsync(request.OutputPath, resultText, new UTF8Encoding(false), cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return new TransformResult
+        {
+            OutputText = resultText,
+            Output = new UTF8Encoding(false).GetBytes(resultText)
+        };
+    }
+
+    /// <summary>
+    /// Shared synchronous transform core over in-memory XSL/XML text (used by both the
+    /// synchronous and asynchronous paths). CPU-bound work: XslCompiledTransform.Load and
+    /// Transform have no asynchronous equivalents in the BCL.
+    /// </summary>
+    private static string TransformTextCore(string xsl, string inputXml, IReadOnlyDictionary<string, string>? parameters)
+    {
+        var xslt = new XslCompiledTransform();
+        using (var xslReader = XmlReader.Create(new StringReader(xsl),
+                   XmlReaderSettingsHelper.CreateForStringText()))
+        {
+            xslt.Load(xslReader, CreateSettings(), new XmlUrlResolver());
+        }
+
+        var args = BuildArgList(parameters);
+
+        using var output = new StringWriter(CultureInfo.InvariantCulture);
+        using (var reader = XmlReader.Create(new StringReader(inputXml),
+                   XmlReaderSettingsHelper.CreateForStringText()))
+        {
+            xslt.Transform(reader, args, output);
+        }
+
+        return output.ToString();
+    }
 
     private TransformResult TransformFiles(TransformRequest request)
     {

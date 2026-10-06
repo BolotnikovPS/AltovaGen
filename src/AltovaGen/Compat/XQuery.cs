@@ -67,10 +67,47 @@ internal class XQuery : IXQuery
         return result.OutputText ?? string.Empty;
     }
 
+    public async Task ExecuteAsync(string bstrOutputFileName, CancellationToken cancellationToken = default)
+    {
+        await RunAsync(bstrOutputFileName, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<string> ExecuteAndGetResultAsStringAsync(CancellationToken cancellationToken = default)
+    {
+        var result = await RunAsync(outputPath: null, cancellationToken).ConfigureAwait(false);
+        return result.OutputText ?? string.Empty;
+    }
+
     private XQueryResult Run(string? outputPath)
     {
         _lastError = string.Empty;
+        var (request, error) = BuildRequest(outputPath);
+        if (error is not null)
+        {
+            return new XQueryResult { LastErrorMessage = error };
+        }
 
+        var engine = _router.SelectXQueryEngine();
+        var result = engine.Execute(request!);
+        return FinalizeResult(result, outputPath);
+    }
+
+    private async Task<XQueryResult> RunAsync(string? outputPath, CancellationToken cancellationToken)
+    {
+        _lastError = string.Empty;
+        var (request, error) = BuildRequest(outputPath);
+        if (error is not null)
+        {
+            return new XQueryResult { LastErrorMessage = error };
+        }
+
+        var engine = _router.SelectXQueryEngine();
+        var result = await engine.ExecuteAsync(request!, cancellationToken).ConfigureAwait(false);
+        return await FinalizeResultAsync(result, outputPath, cancellationToken).ConfigureAwait(false);
+    }
+
+    private (XQueryRequest? Request, string? Error) BuildRequest(string? outputPath)
+    {
         bool queryFromFile = !string.IsNullOrEmpty(_xQueryFileName);
         bool queryFromText = !string.IsNullOrEmpty(_xQueryFromText);
         bool inputFromFile = !string.IsNullOrEmpty(_inputXmlFileName);
@@ -79,20 +116,20 @@ internal class XQuery : IXQuery
         if (!queryFromFile && !queryFromText)
         {
             _lastError = "No XQuery specified: set XQueryFileName or XQueryFromText.";
-            return new XQueryResult { LastErrorMessage = _lastError };
+            return (null, _lastError);
         }
 
         if (!inputFromFile && !inputFromText)
         {
             _lastError = "No input XML specified: set InputXMLFileName or InputXMLFromText.";
-            return new XQueryResult { LastErrorMessage = _lastError };
+            return (null, _lastError);
         }
 
         if (_dotNetExtensions != 0 || _javaExtensions != 0)
         {
             _lastError = "Extension functions are not supported: this implementation is 100% managed " +
                          "with no COM/script host.";
-            return new XQueryResult { LastErrorMessage = _lastError };
+            return (null, _lastError);
         }
 
         var request = new XQueryRequest
@@ -110,9 +147,11 @@ internal class XQuery : IXQuery
             ExternalVariablesAsXPath = _variablesAsXPath.Count == 0 ? null : _variablesAsXPath.ToDictionary(p => p.Key, p => p.Value)
         };
 
-        var engine = _router.SelectXQueryEngine();
-        var result = engine.Execute(request);
+        return (request, null);
+    }
 
+    private XQueryResult FinalizeResult(XQueryResult result, string? outputPath)
+    {
         if (!result.IsSuccess)
         {
             _lastError = result.LastErrorMessage ?? "XQuery execution failed.";
@@ -123,6 +162,24 @@ internal class XQuery : IXQuery
             {
                 OutputText = File.ReadAllText(outputPath),
                 Output = File.ReadAllBytes(outputPath)
+            };
+        }
+
+        return result;
+    }
+
+    private async Task<XQueryResult> FinalizeResultAsync(XQueryResult result, string? outputPath, CancellationToken cancellationToken)
+    {
+        if (!result.IsSuccess)
+        {
+            _lastError = result.LastErrorMessage ?? "XQuery execution failed.";
+        }
+        else if (!string.IsNullOrEmpty(outputPath) && result.OutputText is null && File.Exists(outputPath))
+        {
+            result = new XQueryResult
+            {
+                OutputText = await File.ReadAllTextAsync(outputPath, cancellationToken).ConfigureAwait(false),
+                Output = await File.ReadAllBytesAsync(outputPath, cancellationToken).ConfigureAwait(false)
             };
         }
 

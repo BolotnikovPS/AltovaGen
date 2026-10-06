@@ -58,6 +58,17 @@ internal class XSLT1 : IXSLT1
         return result.OutputText ?? string.Empty;
     }
 
+    public async Task ExecuteAsync(string bstrOutputFileName, CancellationToken cancellationToken = default)
+    {
+        await RunAsync(bstrOutputFileName, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<string> ExecuteAndGetResultAsStringAsync(CancellationToken cancellationToken = default)
+    {
+        var result = await RunAsync(outputPath: null, cancellationToken).ConfigureAwait(false);
+        return result.OutputText ?? string.Empty;
+    }
+
     protected virtual double RequiredXsltVersion => 1.0;
 
     /// <summary>
@@ -92,6 +103,35 @@ internal class XSLT1 : IXSLT1
         return false;
     }
 
+    private async Task<bool> UsesAltovaExtensionNamespaceAsync(CancellationToken cancellationToken)
+    {
+        const string altovaExtensionMarker = "altova.com/xslt-extensions";
+
+        if (!string.IsNullOrEmpty(_xslFromText))
+        {
+            return _xslFromText.Contains(altovaExtensionMarker, StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (!string.IsNullOrEmpty(_xslFileName) && File.Exists(_xslFileName))
+        {
+            try
+            {
+                var text = await File.ReadAllTextAsync(_xslFileName, cancellationToken).ConfigureAwait(false);
+                return text.Contains(altovaExtensionMarker, StringComparison.OrdinalIgnoreCase);
+            }
+            catch (IOException)
+            {
+                // The engine will report a file-level error below if the file is unreadable.
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+        }
+
+        return false;
+    }
+
     protected virtual TransformRequest BuildRequest(string? outputPath) => new()
     {
         InputXmlPath = _inputXmlFileName,
@@ -108,30 +148,60 @@ internal class XSLT1 : IXSLT1
     private TransformResult Run(string? outputPath)
     {
         _lastError = string.Empty;
+        var validationError = ValidateRequest();
+        if (validationError is not null)
+        {
+            return new TransformResult { LastErrorMessage = validationError };
+        }
 
+        var engine = _router.SelectXsltEngine(RequiredXsltVersion, UsesAltovaExtensionNamespace());
+        var request = BuildRequest(outputPath);
+        var result = engine.Transform(request);
+        return FinalizeResult(result, outputPath);
+    }
+
+    private async Task<TransformResult> RunAsync(string? outputPath, CancellationToken cancellationToken)
+    {
+        _lastError = string.Empty;
+        var validationError = ValidateRequest();
+        if (validationError is not null)
+        {
+            return new TransformResult { LastErrorMessage = validationError };
+        }
+
+        var usesAltova = await UsesAltovaExtensionNamespaceAsync(cancellationToken).ConfigureAwait(false);
+        var engine = _router.SelectXsltEngine(RequiredXsltVersion, usesAltova);
+        var request = BuildRequest(outputPath);
+        var result = await engine.TransformAsync(request, cancellationToken).ConfigureAwait(false);
+        return await FinalizeResultAsync(result, outputPath, cancellationToken).ConfigureAwait(false);
+    }
+
+    private string? ValidateRequest()
+    {
         if (string.IsNullOrEmpty(_inputXmlFileName) && string.IsNullOrEmpty(_inputXmlFromText))
         {
             _lastError = "No input XML specified: set InputXMLFileName or InputXMLFromText.";
-            return new TransformResult { LastErrorMessage = _lastError };
+            return _lastError;
         }
 
         if (string.IsNullOrEmpty(_xslFileName) && string.IsNullOrEmpty(_xslFromText))
         {
             _lastError = "No stylesheet specified: set XSLFileName or XSLFromText.";
-            return new TransformResult { LastErrorMessage = _lastError };
+            return _lastError;
         }
 
         if (_dotNetExtensions != 0 || _javaExtensions != 0)
         {
             _lastError = "Extension functions are not supported: this implementation is 100% managed " +
                          "with no COM/script host. EnableScript (msxsl:script) is unsupported in .NET 8+ [SYSLIB0062].";
-            return new TransformResult { LastErrorMessage = _lastError };
+            return _lastError;
         }
 
-        var engine = _router.SelectXsltEngine(RequiredXsltVersion, UsesAltovaExtensionNamespace());
-        var request = BuildRequest(outputPath);
-        var result = engine.Transform(request);
+        return null;
+    }
 
+    private TransformResult FinalizeResult(TransformResult result, string? outputPath)
+    {
         if (!result.IsSuccess)
         {
             _lastError = result.LastErrorMessage ?? "Transformation failed.";
@@ -146,6 +216,27 @@ internal class XSLT1 : IXSLT1
                 {
                     OutputText = File.ReadAllText(outputPath),
                     Output = File.ReadAllBytes(outputPath)
+                };
+            }
+        }
+
+        return result;
+    }
+
+    private async Task<TransformResult> FinalizeResultAsync(TransformResult result, string? outputPath, CancellationToken cancellationToken)
+    {
+        if (!result.IsSuccess)
+        {
+            _lastError = result.LastErrorMessage ?? "Transformation failed.";
+        }
+        else
+        {
+            if (!string.IsNullOrEmpty(outputPath) && result.OutputText is null && File.Exists(outputPath))
+            {
+                result = new TransformResult
+                {
+                    OutputText = await File.ReadAllTextAsync(outputPath, cancellationToken).ConfigureAwait(false),
+                    Output = await File.ReadAllBytesAsync(outputPath, cancellationToken).ConfigureAwait(false)
                 };
             }
         }

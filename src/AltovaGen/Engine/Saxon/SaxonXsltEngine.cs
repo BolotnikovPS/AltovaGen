@@ -44,6 +44,16 @@ internal sealed class SaxonXsltEngine : IXsltEngine
         """^<\?xml[^>]*?encoding\s*=\s*["'](?<enc>[^"']+)["']""",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    /// <summary>
+    /// SaxonCS-HE mutates process-wide static state while constructing a
+    /// <see cref="Processor"/> and registering extension functions. Under concurrent
+    /// transforms that registration is intermittently lost (the function then fails to
+    /// resolve at compile time with XPST0017), so processor construction and extension
+    /// registration must be serialized. Compilation and transformation after that point
+    /// are per-call and remain thread-safe.
+    /// </summary>
+    private static readonly object ProcessorGate = new();
+
     static SaxonXsltEngine()
     {
         // Altova output is frequently windows-1251; register the legacy code pages so the
@@ -67,50 +77,7 @@ internal sealed class SaxonXsltEngine : IXsltEngine
 
         try
         {
-            // false => not schema-aware (Home Edition).
-            var processor = new Processor(false);
-            processor.RegisterExtensionFunction(new AltovaEvaluateFunction());
-
-            var executable = Compile(processor, request, diagnostics);
-            var transformer = executable.Load30();
-            transformer.ErrorReporter = error => Collect(error, diagnostics);
-
-            if (!string.IsNullOrEmpty(request.InitialTemplateMode))
-            {
-                transformer.InitialMode = CreateQName(request.InitialTemplateMode!);
-            }
-
-            var parameters = BuildParameters(request.ExternalParameters);
-            if (parameters.Count > 0)
-            {
-                transformer.SetStylesheetParameters(parameters);
-            }
-
-            // Relative xsl:result-document URIs resolve against the primary output location.
-            if (!string.IsNullOrEmpty(request.OutputPath))
-            {
-                transformer.BaseOutputURI = new Uri(Path.GetFullPath(request.OutputPath!)).AbsoluteUri;
-            }
-
-            var source = BuildSource(processor, request);
-
-            byte[] bytes;
-            using (var buffer = new MemoryStream())
-            {
-                var serializer = processor.NewSerializer(buffer);
-
-                if (!string.IsNullOrEmpty(request.InitialTemplateName))
-                {
-                    transformer.GlobalContextItem = source;
-                    transformer.CallTemplate(CreateQName(request.InitialTemplateName!), serializer);
-                }
-                else
-                {
-                    transformer.ApplyTemplates(source, serializer);
-                }
-
-                bytes = buffer.ToArray();
-            }
+            var bytes = TransformCore(request, diagnostics);
 
             var failure = FirstError(diagnostics);
             if (failure is not null)
@@ -144,6 +111,125 @@ internal sealed class SaxonXsltEngine : IXsltEngine
                 Diagnostics = diagnostics.ToArray()
             };
         }
+    }
+
+    public async Task<TransformResult> TransformAsync(TransformRequest request, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!request.IsFromFiles && !request.IsFromText)
+        {
+            return new TransformResult
+            {
+                LastErrorMessage = "Invalid request: must specify either file paths or text content for both XML and XSL."
+            };
+        }
+
+        var diagnostics = new List<Diagnostic>();
+
+        try
+        {
+            // The Saxon transform itself is CPU-bound and has no asynchronous equivalent;
+            // the cancellation token is still observed before the work and before writing.
+            cancellationToken.ThrowIfCancellationRequested();
+            var bytes = TransformCore(request, diagnostics);
+
+            var failure = FirstError(diagnostics);
+            if (failure is not null)
+            {
+                return new TransformResult
+                {
+                    LastErrorMessage = failure.Value.ToString(),
+                    Diagnostics = diagnostics.ToArray()
+                };
+            }
+
+            if (!string.IsNullOrEmpty(request.OutputPath))
+            {
+                await File.WriteAllBytesAsync(request.OutputPath!, bytes, cancellationToken).ConfigureAwait(false);
+            }
+
+            return new TransformResult
+            {
+                Output = bytes,
+                OutputText = Decode(bytes),
+                Diagnostics = diagnostics.ToArray()
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return new TransformResult
+            {
+                LastErrorMessage = string.IsNullOrWhiteSpace(ex.Message)
+                    ? "XSLT transformation failed."
+                    : ex.Message,
+                Diagnostics = diagnostics.ToArray()
+            };
+        }
+    }
+
+    /// <summary>
+    /// Performs the Saxon transform and returns the serialized output bytes, collecting
+    /// diagnostics into <paramref name="diagnostics"/>. Extracted so the synchronous and
+    /// asynchronous entry points share the same (CPU-bound) transform body.
+    /// </summary>
+    private static byte[] TransformCore(TransformRequest request, List<Diagnostic> diagnostics)
+    {
+        // false => not schema-aware (Home Edition). Construction and extension
+        // registration are serialized: see ProcessorGate.
+        Processor processor;
+        lock (ProcessorGate)
+        {
+            processor = new Processor(false);
+            processor.RegisterExtensionFunction(new AltovaEvaluateFunction());
+        }
+
+        var executable = Compile(processor, request, diagnostics);
+        var transformer = executable.Load30();
+        transformer.ErrorReporter = error => Collect(error, diagnostics);
+
+        if (!string.IsNullOrEmpty(request.InitialTemplateMode))
+        {
+            transformer.InitialMode = CreateQName(request.InitialTemplateMode!);
+        }
+
+        var parameters = BuildParameters(request.ExternalParameters);
+        if (parameters.Count > 0)
+        {
+            transformer.SetStylesheetParameters(parameters);
+        }
+
+        // Relative xsl:result-document URIs resolve against the primary output location.
+        if (!string.IsNullOrEmpty(request.OutputPath))
+        {
+            transformer.BaseOutputURI = new Uri(Path.GetFullPath(request.OutputPath!)).AbsoluteUri;
+        }
+
+        var source = BuildSource(processor, request);
+
+        byte[] bytes;
+        using (var buffer = new MemoryStream())
+        {
+            var serializer = processor.NewSerializer(buffer);
+
+            transformer.GlobalContextItem = source;
+            if (!string.IsNullOrEmpty(request.InitialTemplateName))
+            {
+                transformer.CallTemplate(CreateQName(request.InitialTemplateName!), serializer);
+            }
+            else
+            {
+                transformer.ApplyTemplates(source, serializer);
+            }
+
+            bytes = buffer.ToArray();
+        }
+
+        return bytes;
     }
 
     private static XsltExecutable Compile(Processor processor, TransformRequest request, List<Diagnostic> diagnostics)

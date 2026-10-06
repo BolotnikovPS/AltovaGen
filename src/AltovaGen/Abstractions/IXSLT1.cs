@@ -20,4 +20,15 @@ public interface IXSLT1
     string ExecuteAndGetResultAsString();
     void AddExternalParameter(string bstrName, string bstrVal);
     void ClearExternalParameterList();
+
+    /// <summary>
+    /// Asynchronous variant of <see cref="Execute"/> that uses async file I/O and
+    /// observes <paramref name="cancellationToken"/>.
+    /// </summary>
+    Task ExecuteAsync(string bstrOutputFileName, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Asynchronous variant of <see cref="ExecuteAndGetResultAsString"/>.
+    /// </summary>
+    Task<string> ExecuteAndGetResultAsStringAsync(CancellationToken cancellationToken = default);
 }

@@ -19,4 +19,20 @@ public interface IXMLValidator
     bool IsValid();
     bool IsWellFormed();
     bool IsValidWithExternalSchemaOrDTD();
+
+    /// <summary>
+    /// Asynchronous variant of <see cref="IsValid"/> that uses async file I/O and
+    /// observes <paramref name="cancellationToken"/>.
+    /// </summary>
+    Task<bool> IsValidAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Asynchronous variant of <see cref="IsWellFormed"/>.
+    /// </summary>
+    Task<bool> IsWellFormedAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Asynchronous variant of <see cref="IsValidWithExternalSchemaOrDTD"/>.
+    /// </summary>
+    Task<bool> IsValidWithExternalSchemaOrDTDAsync(CancellationToken cancellationToken = default);
 }

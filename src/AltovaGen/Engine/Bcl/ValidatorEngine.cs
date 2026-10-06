@@ -57,6 +57,37 @@ internal sealed class BclValidatorEngine : IValidationEngine
         }
     }
 
+    public async Task<ValidationResult> ValidateAsync(ValidationRequest request, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            if (request.IsFromFiles)
+            {
+                return await ValidateFromFileAsync(request, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (request.IsFromText)
+            {
+                return ValidateFromText(request);
+            }
+
+            return Failure("Invalid request: must specify either file paths or text content.", "REQ001", isWellFormed: false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (XmlException ex)
+        {
+            return NotWellFormed(ex);
+        }
+        catch (Exception ex)
+        {
+            return Failure(ex.Message, "VALIDATION_ERROR", isWellFormed: false);
+        }
+    }
+
     private static ValidationResult ValidateFromFile(ValidationRequest request)
     {
         if (!string.IsNullOrEmpty(request.SchemaPath))
@@ -67,6 +98,26 @@ internal sealed class BclValidatorEngine : IValidationEngine
         if (!string.IsNullOrEmpty(request.DtdPath))
         {
             return ValidateDtd(ReadText(request.InputXmlPath!), ReadText(request.DtdPath!));
+        }
+
+        return CheckWellFormed(inputPath: request.InputXmlPath!, inputText: null);
+    }
+
+    private static async Task<ValidationResult> ValidateFromFileAsync(ValidationRequest request, CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrEmpty(request.SchemaPath))
+        {
+            // Schema input stays a URI (xsd:import/xsd:include resolve against it); the
+            // source document is read asynchronously only for the DTD route below.
+            return ValidateSchema(inputPath: request.InputXmlPath!, inputText: null, schemaUri: request.SchemaPath!, schemaText: null);
+        }
+
+        if (!string.IsNullOrEmpty(request.DtdPath))
+        {
+            var inputXml = await File.ReadAllTextAsync(request.InputXmlPath!, cancellationToken).ConfigureAwait(false);
+            var dtd = await File.ReadAllTextAsync(request.DtdPath!, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValidateDtd(inputXml, dtd);
         }
 
         return CheckWellFormed(inputPath: request.InputXmlPath!, inputText: null);
