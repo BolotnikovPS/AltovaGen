@@ -1,0 +1,30 @@
+# Build outputs
+[Bb]in/
+[Oo]bj/
+artifacts/
+*.nupkg
+*.snupkg
+*.binlog
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+
+# Scratch / probes
+.scratch/
+
+# Proprietary Altova COM interop assembly (32-bit).
+# Present locally for API-surface reference only. MUST NOT be committed:
+# it is a third-party closed-source binary and is the very dependency
+# this project replaces. See README and invariant I2c.
+Altova.AltovaXML.dll
+
+# NuGet push credentials — never commit
+*.apikey
+nuget.key
+
+# OS junk
+Thumbs.db
+.DS_Store

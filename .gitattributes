@@ -1,0 +1,32 @@
+# Normalize line endings to LF in the repository, check out CRLF on Windows.
+# Matches .editorconfig (end_of_line = crlf).
+* text=auto
+
+*.cs        text diff=csharp
+*.csproj    text diff=xml
+*.props     text diff=xml
+*.targets   text diff=xml
+*.slnx      text diff=xml
+*.xml       text diff=xml
+*.xslt      text diff=xml
+*.xsl       text diff=xml
+*.xsd       text diff=xml
+*.md        text diff=markdown
+*.json      text
+*.yml       text
+*.yaml      text
+*.config    text
+
+# Binary — never convert line endings
+*.dll       binary
+*.exe       binary
+*.pdb       binary
+*.nupkg     binary
+*.snupkg    binary
+*.png       binary
+*.jpg       binary
+*.ico       binary
+
+# Git housekeeping
+.gitattributes text
+.gitignore     text

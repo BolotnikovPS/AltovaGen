@@ -1,0 +1,61 @@
+name: Publish to NuGet
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+
+      - name: Restore
+        run: dotnet restore AltovaGen.slnx
+
+      - name: Build
+        run: dotnet build AltovaGen.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test tests/AltovaGen.UnitTests/AltovaGen.UnitTests.csproj -c Release --no-build
+
+      - name: Pack
+        run: dotnet pack src/AltovaGen/AltovaGen.csproj -c Release --no-build -o ./artifacts
+
+      # Short-lived nuget.org API key via OIDC (Trusted Publishing).
+      # Требования: в nuget.org добавлена политика Trusted Publishing на этот
+      # репозиторий и workflow-файл publish.yml; в GitHub Actions секрет
+      # NUGET_USER = имя профиля на nuget.org (не email).
+      - name: NuGet login (OIDC → temporary key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push to NuGet
+        run: >
+          dotnet nuget push "./artifacts/*.nupkg"
+          --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate

@@ -1,0 +1,85 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Target framework: .NET 8+ (LTS) -->
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+
+    <!-- ============================================================
+         NuGet package metadata
+         ============================================================ -->
+    <PackageId>AltovaGen</PackageId>
+    <Authors>AltovaGen</Authors>
+    <Company>AltovaGen</Company>
+    <Product>AltovaGen</Product>
+    <Title>AltovaGen — cross-platform .NET 8+ replacement for Altova.AltovaXML</Title>
+    <Description>Cross-platform, COM-free .NET 8+ replacement for Altova.AltovaXML.dll (32-bit COM component).
+Provides XSLT 1.0 (BCL) plus XSLT 2.0/3.0 and XPath 2.0/3.1 through the bundled SaxonCS-HE engine,
+including managed emulation of the Altova extension namespace (xmlns:altova="http://www.altova.com/xslt-extensions"),
+plus XML Schema 1.0 / DTD / well-formedness validation. Zero COM, AnyCPU only.
+Replicates the Altova.AltovaXML API surface (IApplication, IXSLT1/IXSLT2, IXQuery, IXMLValidator).
+Works on linux-x64, osx-arm64 and win-x64.</Description>
+    <PackageTags>xml;xslt;xquery;xsd;validation;altova;cross-platform;dotnet;dotnet-core;net8</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/altovagen/altovagen</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/altovagen/altovagen.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageOutputPath>$(MSBuildProjectDirectory)/../../artifacts/packages</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!-- Library packaging: don't publish the test project or xml docs by default -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+
+    <!-- I1: PlatformTarget stays AnyCPU by default -->
+    <Deterministic>true</Deterministic>
+    
+    <Version>2.0.0</Version>
+  </PropertyGroup>
+
+  <!-- Files to include in the NuGet package -->
+
+  <!-- Pack the repository README into the package as its readme -->
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)..\..\README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <!-- ============================================================
+       XSLT 2.0/3.0 engine — SaxonCS-HE 13 (Saxonica Home Edition).
+
+       This is the only engine that can run the Altova-generated XSLT 2.0
+       stylesheets: it provides XSLT 3.0 (2.0 included), the xsl:for-each-group /
+       sequence-arithmetic features, and the extension-function bridge used to
+       emulate the Altova extension namespace
+       (xmlns:altova="http://www.altova.com/xslt-extensions").
+
+       Pure managed (no native binaries, no COM) and cross-platform.
+       NOTE: verify Saxon licensing (saxonica.com) for your distribution model.
+       ============================================================ -->
+  <ItemGroup>
+    <PackageReference Include="SaxonCS-HE" Version="13.0.0" />
+  </ItemGroup>
+
+  <!-- Dependency-injection integration (AddAltovaGen extension method).
+       Only the *abstractions* are referenced here so the package stays host-agnostic:
+       consumers bring their own container (Microsoft.Extensions.DependencyInjection,
+       Autofac adapter, etc.). -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <!-- Implementation classes are internal: the public API surface is interfaces +
+       AddAltovaGen(). The unit test project reaches internals via InternalsVisibleTo. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="AltovaGen.UnitTests" />
+  </ItemGroup>
+
+</Project>
