@@ -108,31 +108,7 @@ dependencies and never loads that assembly.
 ```bash
 dotnet build AltovaGen.slnx -c Release
 dotnet test  AltovaGen.slnx -c Release
-dotnet pack  src/AltovaGen/AltovaGen.csproj -c Release
 ```
-
-`dotnet pack` writes `AltovaGen.<version>.nupkg` and the symbol package
-`AltovaGen.<version>.snupkg` (SourceLink + embedded PDB) to `artifacts/packages/`.
-
-### Publishing
-
-```bash
-# 1. Set your repository URL first — RepositoryUrl in AltovaGen.csproj drives
-#    SourceLink. Then pack.
-dotnet pack src/AltovaGen/AltovaGen.csproj -c Release
-
-# 2. Push both packages (the .snupkg enables source-level debugging for consumers)
-dotnet nuget push artifacts/packages/AltovaGen.1.0.0.nupkg \
-  --api-key $NUGET_API_KEY \
-  --source https://api.nuget.org/v3/index.json
-
-dotnet nuget push artifacts/packages/AltovaGen.1.0.0.snupkg \
-  --api-key $NUGET_API_KEY \
-  --source https://api.nuget.org/v3/index.json
-```
-
-Pushing a `.snupkg` to nuget.org is optional but recommended; if you omit it,
-consumers fall back to local PDBs.
 
 ## License
 

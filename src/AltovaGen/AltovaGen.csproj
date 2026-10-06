@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- Target framework: .NET 8+ (LTS) -->
-    <TargetFramework>net8.0</TargetFramework>
+    <!-- Target frameworks: .NET 8 (LTS), .NET 9, .NET 10 -->
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
@@ -11,9 +11,7 @@
          NuGet package metadata
          ============================================================ -->
     <PackageId>AltovaGen</PackageId>
-    <Authors>AltovaGen</Authors>
-    <Company>AltovaGen</Company>
-    <Product>AltovaGen</Product>
+    <Authors>BolotnikovPS</Authors>
     <Title>AltovaGen — cross-platform .NET 8+ replacement for Altova.AltovaXML</Title>
     <Description>Cross-platform, COM-free .NET 8+ replacement for Altova.AltovaXML.dll (32-bit COM component).
 Provides XSLT 1.0 (BCL) plus XSLT 2.0/3.0 and XPath 2.0/3.1 through the bundled SaxonCS-HE engine,
@@ -21,7 +19,7 @@ including managed emulation of the Altova extension namespace (xmlns:altova="htt
 plus XML Schema 1.0 / DTD / well-formedness validation. Zero COM, AnyCPU only.
 Replicates the Altova.AltovaXML API surface (IApplication, IXSLT1/IXSLT2, IXQuery, IXMLValidator).
 Works on linux-x64, osx-arm64 and win-x64.</Description>
-    <PackageTags>xml;xslt;xquery;xsd;validation;altova;cross-platform;dotnet;dotnet-core;net8</PackageTags>
+    <PackageTags>xml;xslt;xquery;xsd;validation;altova;cross-platform;dotnet;dotnet-core;net8;net9;net10</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/altovagen/altovagen</PackageProjectUrl>
     <RepositoryUrl>https://github.com/altovagen/altovagen.git</RepositoryUrl>
@@ -41,7 +39,7 @@ Works on linux-x64, osx-arm64 and win-x64.</Description>
     <!-- I1: PlatformTarget stays AnyCPU by default -->
     <Deterministic>true</Deterministic>
     
-    <Version>2.0.0</Version>
+    <Version>2.0.1</Version>
   </PropertyGroup>
 
   <!-- Files to include in the NuGet package -->
@@ -65,6 +63,12 @@ Works on linux-x64, osx-arm64 and win-x64.</Description>
        ============================================================ -->
   <ItemGroup>
     <PackageReference Include="SaxonCS-HE" Version="13.0.0" />
+    <!-- Pin transitive Saxon dependencies to versions free of known advisories.
+         SaxonCS-HE 13.0.0 pins AngleSharp 1.2.0 (GHSA-pgww-w46g-26qg mXSS) and
+         Microsoft.Extensions.Configuration.Xml 10.0.7 -> System.Security.Cryptography.Xml
+         10.0.7 (CVE-2026-50525). These direct overrides raise only the vulnerable leaf. -->
+    <PackageReference Include="AngleSharp" Version="1.8.3" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.12" />
   </ItemGroup>
 
   <!-- Dependency-injection integration (AddAltovaGen extension method).
@@ -72,8 +76,7 @@ Works on linux-x64, osx-arm64 and win-x64.</Description>
        consumers bring their own container (Microsoft.Extensions.DependencyInjection,
        Autofac adapter, etc.). -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.401" PrivateAssets="All" />
   </ItemGroup>
 
   <!-- Implementation classes are internal: the public API surface is interfaces +

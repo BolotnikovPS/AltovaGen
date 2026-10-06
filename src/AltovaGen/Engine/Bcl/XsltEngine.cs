@@ -46,8 +46,9 @@ internal sealed class BclXsltEngine : IXsltEngine
 
     private static XsltSettings CreateSettings() => new()
     {
-        // msxsl:script is obsolete in .NET 8+ [SYSLIB0062] — never enabled.
-        EnableScript = false,
+        // msxsl:script is obsolete in .NET 8+ [SYSLIB0062] and unsupported on every
+        // OS — script blocks are never enabled. EnableScript defaults to false, so it
+        // is intentionally not referenced here (the member is removed in .NET 10).
         EnableDocumentFunction = true
     };
 
