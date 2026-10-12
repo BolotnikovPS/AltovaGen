@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/AltovaGen/AltovaGen.csproj" />
+  <Project Path="tests/AltovaGen.UnitTests/AltovaGen.UnitTests.csproj" />
+</Solution>

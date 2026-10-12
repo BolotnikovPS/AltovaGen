@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <!-- ======================================================================
+       Directory.Build.props — Common build settings for AltovaGen
+       Requirements (per migration plan §2):
+       - I1: No Required32Bit / 32BitPreferred in any assembly
+       - I2: Zero COM in code
+       - I2b: No COM registration or 32-bit COM server installation
+       - I2c: Altova.AltovaXML.dll must not be in publish/pack output
+       - I3: Cross-platform (linux-x64, osx-arm64) builds and tests
+       ====================================================================== -->
+
+  <PropertyGroup>
+    <!-- I1: no Required32Bit / 32BitPreferred — PlatformTarget stays AnyCPU by default.
+         Do not set <PlatformTarget>x86</PlatformTarget> anywhere. -->
+    <Platforms>AnyCPU</Platforms>
+
+    <!-- I3: cross-platform RIDs verified in build matrix -->
+    <RuntimeIdentifiers>linux-x64;osx-arm64;win-x64</RuntimeIdentifiers>
+
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <!-- I2: Zero COM in code — the Compat layer must not reference any COM interop
+       assembly (no Altova.AltovaXML.dll, no System.Runtime.InteropServices ComImport usage).
+       Enforced by absence of any Reference/PackageReference to COM interop and by
+       invariant tests scanning published output. -->
+
+  <!-- Version stamping -->
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <Authors>AltovaGen Team</Authors>
+    <Company>AltovaGen</Company>
+    <Product>AltovaGen</Product>
+  </PropertyGroup>
+
+</Project>

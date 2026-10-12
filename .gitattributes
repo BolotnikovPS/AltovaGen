@@ -1,0 +1,32 @@
+# Normalize line endings to LF in the repository AND on checkout (all platforms).
+# Matches .editorconfig (end_of_line = lf).
+* text=auto eol=lf
+
+*.cs        text eol=lf diff=csharp
+*.csproj    text eol=lf diff=xml
+*.props     text eol=lf diff=xml
+*.targets   text eol=lf diff=xml
+*.slnx      text eol=lf diff=xml
+*.xml       text eol=lf diff=xml
+*.xslt      text eol=lf diff=xml
+*.xsl       text eol=lf diff=xml
+*.xsd       text eol=lf diff=xml
+*.md        text eol=lf diff=markdown
+*.json      text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.config    text eol=lf
+
+# Binary — never convert line endings
+*.dll       binary
+*.exe       binary
+*.pdb       binary
+*.nupkg     binary
+*.snupkg    binary
+*.png       binary
+*.jpg       binary
+*.ico       binary
+
+# Git housekeeping
+.gitattributes text
+.gitignore     text
