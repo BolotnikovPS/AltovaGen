@@ -36,22 +36,14 @@ namespace AltovaGen.Engine.Saxon;
 /// on the Saxon processor by <see cref="SaxonXsltEngine"/> via a
 /// <see cref="SaxonExtensionFunctionRegistry"/>.
 /// </summary>
-internal sealed class AltovaEvaluateFunction : ExtensionFunctionDefinition
+internal sealed class AltovaEvaluateFunction(string namespaceUri) : ExtensionFunctionDefinition
 {
     /// <summary>The function name inside the configured namespace URI.</summary>
     public const string LocalName = "evaluate";
 
-    private readonly string _namespaceUri;
-
-    /// <summary>
-    /// Creates the <c>evaluate()</c> bridge for the given extension namespace URI.
-    /// </summary>
-    public AltovaEvaluateFunction(string namespaceUri)
-    {
-        _namespaceUri = string.IsNullOrWhiteSpace(namespaceUri)
-            ? throw new ArgumentException("A namespace URI is required.", nameof(namespaceUri))
-            : namespaceUri;
-    }
+    private readonly string _namespaceUri = string.IsNullOrWhiteSpace(namespaceUri)
+        ? throw new ArgumentException("A namespace URI is required.", nameof(namespaceUri))
+        : namespaceUri;
 
     public override QName FunctionName => new(_namespaceUri, LocalName);
 

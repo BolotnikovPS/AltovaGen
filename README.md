@@ -1,5 +1,9 @@
 # AltovaGen
 
+[![NuGet Version](https://img.shields.io/nuget/v/AltovaGen)](https://www.nuget.org/packages/AltovaGen)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/AltovaGen)](https://www.nuget.org/packages/AltovaGen)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 ## What is AltovaGen?
 
 This library provides a managed, AnyCPU .NET 8+ API compatible with `Altova.AltovaXML.dll` (the COM interop wrapper from Altova XMLSpy 2026). **Zero COM dependencies**, **fully cross-platform** (Windows, Linux, macOS).
@@ -44,7 +48,7 @@ string result = app.XSLT1.ExecuteAndGetResultAsString();
 ### XSLT 2.0/3.0
 
 Use `IXSLT2` for stylesheets that need XSLT 2.0/3.0 or the Altova extension
-namespace `xmlns:altova="http://www.w3.org/.../xslt-extensions"`. It is routed
+namespace `xmlns:altova="http://www.altova.com/xslt-extensions"`. It is routed
 to the bundled SaxonCS-HE engine:
 
 ```csharp
@@ -53,6 +57,23 @@ xslt2.InputXMLFileName = "sales.xml";
 xslt2.XSLFileName      = "sales-report.xslt";
 xslt2.Execute("sales-report.fo");
 ```
+
+### Supported Altova extension functions
+
+The bundled Saxon engine registers these managed, COM-free emulations:
+
+| Function | Description |
+|----------|-------------|
+| `evaluate(xpath, node?)` | Dynamic XPath / XPath 3.1 evaluation (the `altova:evaluate` bridge) |
+| `distinct-nodes(nodes)` | Deduplicates nodes by identity, preserving document order |
+| `get-temp-folder()` | Returns the OS temporary folder path |
+| `encode-for-rft(sequence)` | Escapes text for RTF output |
+
+`evaluate` is registered under all three namespaces Altova tools emit:
+`http://www.altova.com/xslt-extensions` (canonical `altova:`),
+`http://www.altova.com`, and
+`http://www.altova.com/StyleVision/user-xpath-functions` (`sps:evaluate`).
+The utility functions are registered under the canonical `xslt-extensions` namespace.
 
 ### Validation
 
@@ -88,20 +109,53 @@ Registered services:
 | Singleton (stateless) | `IEngineRouter` → `EngineRouter`, `BclXsltEngine`, `BclXQueryEngine`, `BclValidatorEngine`, `SaxonXsltEngine` |
 | Transient (per-operation state) | `IApplication`, `IXSLT1`, `IXSLT2`, `IXQuery`, `IXMLValidator` |
 
+### Async + CancellationToken
+
+Every facade and engine exposes an `*Async` method that uses async file I/O and
+observes a `CancellationToken`; the synchronous methods are kept for parity with
+the original COM surface.
+
+```csharp
+var ct = CancellationToken.None;
+
+await app.XSLT1.ExecuteAsync("out.txt", ct);
+string xsltResult = await app.XSLT1.ExecuteAndGetResultAsStringAsync(ct);
+
+await app.XQuery.ExecuteAsync("out.xml", ct);
+string xqueryResult = await app.XQuery.ExecuteAndGetResultAsStringAsync(ct);
+
+bool ok     = await validator.IsValidAsync(ct);
+bool wellFm = await validator.IsWellFormedAsync(ct);
+bool okDtd  = await validator.IsValidWithExternalSchemaOrDTDAsync(ct);
+```
+
 ## Installation
 
 ```bash
 dotnet add package AltovaGen
 ```
 
+Package: [AltovaGen on NuGet](https://www.nuget.org/packages/AltovaGen)
+
 ## Requirements
 
-- .NET 8.0 or later
+- .NET 8.0 or later (targets `net8.0`, `net9.0`, `net10.0`)
 - AnyCPU / platform-agnostic (no x86 dependency)
 
 The original 32-bit `Altova.AltovaXML.dll` and any Altova installation are **not**
 required — neither at build time nor at runtime. AltovaGen has zero COM
 dependencies and never loads that assembly.
+
+## Limitations
+
+- **XQuery** is an XPath 1.0 subset (BCL engine), not full XQuery 3.1.
+- **XSD** validation is 1.0 (plus DTD and well-formedness); XSD 1.1 is not supported.
+- **XSLT 1.0** runs on the BCL engine — no `msxsl:script` / script extension.
+- Altova **XBRL** functions (`xff:`, `xfi:`), **StyleVision** functions (`sps:*` other
+  than `evaluate`), and `java:` / `clitype:` extensions are not implemented and fail
+  with `XPST0017` (function not found).
+- **PDF** is out of scope: XSLT output is XSL-FO, which must be rendered by an
+  external FO processor (Apache FOP, RenderX, etc.).
 
 ## Building and testing
 

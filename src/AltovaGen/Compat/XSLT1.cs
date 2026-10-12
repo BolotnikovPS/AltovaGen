@@ -8,9 +8,8 @@ namespace AltovaGen.Compat;
 /// Managed, COM-free replacement for XSLT1.
 /// Backed by the XSLT engine selected through <see cref="IEngineRouter"/>.
 /// </summary>
-internal class XSLT1 : IXSLT1
+internal class XSLT1(IEngineRouter router) : IXSLT1
 {
-    private readonly IEngineRouter _router;
     private string? _inputXmlFileName;
     private string? _xslFileName;
     private string? _inputXmlFromText;
@@ -20,8 +19,6 @@ internal class XSLT1 : IXSLT1
     private int _javaExtensions;
     private string _lastError = string.Empty;
     private readonly List<KeyValuePair<string, string>> _parameters = new();
-
-    public XSLT1(IEngineRouter router) => _router = router;
 
     public string InputXMLFileName { set => _inputXmlFileName = value; }
     public string XSLFileName { set => _xslFileName = value; }
@@ -154,7 +151,7 @@ internal class XSLT1 : IXSLT1
             return new TransformResult { LastErrorMessage = validationError };
         }
 
-        var engine = _router.SelectXsltEngine(RequiredXsltVersion, UsesAltovaExtensionNamespace());
+        var engine = router.SelectXsltEngine(RequiredXsltVersion, UsesAltovaExtensionNamespace());
         var request = BuildRequest(outputPath);
         var result = engine.Transform(request);
         return FinalizeResult(result, outputPath);
@@ -170,7 +167,7 @@ internal class XSLT1 : IXSLT1
         }
 
         var usesAltova = await UsesAltovaExtensionNamespaceAsync(cancellationToken).ConfigureAwait(false);
-        var engine = _router.SelectXsltEngine(RequiredXsltVersion, usesAltova);
+        var engine = router.SelectXsltEngine(RequiredXsltVersion, usesAltova);
         var request = BuildRequest(outputPath);
         var result = await engine.TransformAsync(request, cancellationToken).ConfigureAwait(false);
         return await FinalizeResultAsync(result, outputPath, cancellationToken).ConfigureAwait(false);

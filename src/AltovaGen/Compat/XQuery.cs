@@ -9,9 +9,8 @@ namespace AltovaGen.Compat;
 /// Backed by the XQuery engine selected through <see cref="IEngineRouter"/>
 /// (default: the BCL XPath-based XQuery 1.0 subset).
 /// </summary>
-internal class XQuery : IXQuery
+internal class XQuery(IEngineRouter router) : IXQuery
 {
-    private readonly IEngineRouter _router;
     private string? _xQueryFileName;
     private string? _inputXmlFileName;
     private string? _xQueryFromText;
@@ -25,8 +24,6 @@ internal class XQuery : IXQuery
     private string _lastError = string.Empty;
     private readonly List<KeyValuePair<string, string>> _variables = new();
     private readonly List<KeyValuePair<string, string>> _variablesAsXPath = new();
-
-    public XQuery(IEngineRouter router) => _router = router;
 
     public string XQueryFileName { set => _xQueryFileName = value; }
     public string InputXMLFileName { set => _inputXmlFileName = value; }
@@ -87,7 +84,7 @@ internal class XQuery : IXQuery
             return new XQueryResult { LastErrorMessage = error };
         }
 
-        var engine = _router.SelectXQueryEngine();
+        var engine = router.SelectXQueryEngine();
         var result = engine.Execute(request!);
         return FinalizeResult(result, outputPath);
     }
@@ -101,7 +98,7 @@ internal class XQuery : IXQuery
             return new XQueryResult { LastErrorMessage = error };
         }
 
-        var engine = _router.SelectXQueryEngine();
+        var engine = router.SelectXQueryEngine();
         var result = await engine.ExecuteAsync(request!, cancellationToken).ConfigureAwait(false);
         return await FinalizeResultAsync(result, outputPath, cancellationToken).ConfigureAwait(false);
     }

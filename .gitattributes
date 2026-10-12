@@ -1,21 +1,21 @@
-# Normalize line endings to LF in the repository, check out CRLF on Windows.
-# Matches .editorconfig (end_of_line = crlf).
-* text=auto
+# Normalize line endings to LF in the repository AND on checkout (all platforms).
+# Matches .editorconfig (end_of_line = lf).
+* text=auto eol=lf
 
-*.cs        text diff=csharp
-*.csproj    text diff=xml
-*.props     text diff=xml
-*.targets   text diff=xml
-*.slnx      text diff=xml
-*.xml       text diff=xml
-*.xslt      text diff=xml
-*.xsl       text diff=xml
-*.xsd       text diff=xml
-*.md        text diff=markdown
-*.json      text
-*.yml       text
-*.yaml      text
-*.config    text
+*.cs        text eol=lf diff=csharp
+*.csproj    text eol=lf diff=xml
+*.props     text eol=lf diff=xml
+*.targets   text eol=lf diff=xml
+*.slnx      text eol=lf diff=xml
+*.xml       text eol=lf diff=xml
+*.xslt      text eol=lf diff=xml
+*.xsl       text eol=lf diff=xml
+*.xsd       text eol=lf diff=xml
+*.md        text eol=lf diff=markdown
+*.json      text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.config    text eol=lf
 
 # Binary — never convert line endings
 *.dll       binary

@@ -9,9 +9,8 @@ namespace AltovaGen.Compat;
 /// Backed by the validation engine selected through <see cref="IEngineRouter"/>
 /// (default: BCL XSD 1.0/DTD).
 /// </summary>
-internal class XMLValidator : IXMLValidator
+internal class XMLValidator(IEngineRouter router) : IXMLValidator
 {
-    private readonly IEngineRouter _router;
     private string? _inputXmlFileName;
     private string? _schemaFileName;
     private string? _dtdFileName;
@@ -21,8 +20,6 @@ internal class XMLValidator : IXMLValidator
     private int _treatXbrlAsErrors;
     private string _lastError = string.Empty;
     private bool _lastValid;
-
-    public XMLValidator(IEngineRouter router) => _router = router;
 
     public string InputXMLFileName { set => _inputXmlFileName = value; }
     public string SchemaFileName { set => _schemaFileName = value; }
@@ -101,7 +98,7 @@ internal class XMLValidator : IXMLValidator
             return new ValidationResult { IsWellFormed = false, LastErrorMessage = _lastError };
         }
 
-        var engine = _router.SelectValidationEngine(1.0, requireXsd11: false);
+        var engine = router.SelectValidationEngine(1.0, requireXsd11: false);
         var request = BuildRequest(withSchemaOrDtd);
         return engine.Validate(request);
     }
@@ -114,7 +111,7 @@ internal class XMLValidator : IXMLValidator
             return Task.FromResult(new ValidationResult { IsWellFormed = false, LastErrorMessage = _lastError });
         }
 
-        var engine = _router.SelectValidationEngine(1.0, requireXsd11: false);
+        var engine = router.SelectValidationEngine(1.0, requireXsd11: false);
         var request = BuildRequest(withSchemaOrDtd);
         return engine.ValidateAsync(request, cancellationToken);
     }

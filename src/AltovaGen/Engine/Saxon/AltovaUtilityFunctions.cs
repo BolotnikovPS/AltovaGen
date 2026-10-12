@@ -17,18 +17,11 @@ namespace AltovaGen.Engine.Saxon;
 /// document order. Equivalent to Saxon's <c>distinct-values</c> but for nodes (which
 /// compare by identity, not by string value) and returning nodes rather than values.
 /// </summary>
-internal sealed class AltovaDistinctNodesFunction : ExtensionFunctionDefinition
+internal sealed class AltovaDistinctNodesFunction(string namespaceUri) : ExtensionFunctionDefinition
 {
     public const string LocalName = "distinct-nodes";
 
-    private readonly string _namespaceUri;
-
-    public AltovaDistinctNodesFunction(string namespaceUri)
-    {
-        _namespaceUri = namespaceUri;
-    }
-
-    public override QName FunctionName => new(_namespaceUri, LocalName);
+    public override QName FunctionName => new(namespaceUri, LocalName);
 
     public override int MinimumNumberOfArguments => 1;
 
@@ -63,18 +56,11 @@ internal sealed class AltovaDistinctNodesFunction : ExtensionFunctionDefinition
 /// <c>altova:get-temp-folder()</c> — returns the operating-system temporary folder path
 /// as an <c>xs:string</c>. Mirrors <see cref="Path.GetTempPath()"/>.
 /// </summary>
-internal sealed class AltovaGetTempFolderFunction : ExtensionFunctionDefinition
+internal sealed class AltovaGetTempFolderFunction(string namespaceUri) : ExtensionFunctionDefinition
 {
     public const string LocalName = "get-temp-folder";
 
-    private readonly string _namespaceUri;
-
-    public AltovaGetTempFolderFunction(string namespaceUri)
-    {
-        _namespaceUri = namespaceUri;
-    }
-
-    public override QName FunctionName => new(_namespaceUri, LocalName);
+    public override QName FunctionName => new(namespaceUri, LocalName);
 
     public override int MinimumNumberOfArguments => 0;
 
@@ -109,18 +95,11 @@ internal sealed class AltovaGetTempFolderFunction : ExtensionFunctionDefinition
 ///     <c>?</c> is the ANSI fallback character)</item>
 /// </list>
 /// </summary>
-internal sealed class AltovaEncodeForRftFunction : ExtensionFunctionDefinition
+internal sealed class AltovaEncodeForRftFunction(string namespaceUri) : ExtensionFunctionDefinition
 {
     public const string LocalName = "encode-for-rft";
 
-    private readonly string _namespaceUri;
-
-    public AltovaEncodeForRftFunction(string namespaceUri)
-    {
-        _namespaceUri = namespaceUri;
-    }
-
-    public override QName FunctionName => new(_namespaceUri, LocalName);
+    public override QName FunctionName => new(namespaceUri, LocalName);
 
     public override int MinimumNumberOfArguments => 1;
 

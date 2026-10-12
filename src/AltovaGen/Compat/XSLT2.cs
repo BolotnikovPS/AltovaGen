@@ -11,12 +11,10 @@ namespace AltovaGen.Compat;
 /// xsl:for-each-group and Altova extension functions). On the legacy BCL route only
 /// XSLT 1.0 semantics are available.
 /// </summary>
-internal class XSLT2 : XSLT1, IXSLT2
+internal class XSLT2(IEngineRouter router) : XSLT1(router), IXSLT2
 {
     private string? _initialTemplateName;
     private string? _initialTemplateMode;
-
-    public XSLT2(IEngineRouter router) : base(router) { }
 
     /// <summary>
     /// Altova XSLT2 targets XSLT 2.0. The router routes version &gt; 1.0

@@ -34,6 +34,9 @@ jobs:
       - name: Build
         run: dotnet build AltovaGen.slnx -c Release --no-restore
 
+      - name: Check formatting
+        run: dotnet format AltovaGen.slnx --verify-no-changes --no-restore
+
       - name: Test
         run: >
           dotnet test tests/AltovaGen.UnitTests/AltovaGen.UnitTests.csproj
